@@ -56,12 +56,14 @@ jobs:
             Write-Output "exists=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
             Write-Host "Release $tag does not exist; building."
           }
+          exit 0
 
       - name: Package (single exe via Enigma Virtual Box)
         if: steps.check.outputs.exists != 'true'
         shell: pwsh
         run: |
           ./scripts/package.ps1 -Version "${{ steps.version.outputs.version }}"
+          exit 0
 
       - name: Create GitHub Release
         if: steps.check.outputs.exists != 'true'
