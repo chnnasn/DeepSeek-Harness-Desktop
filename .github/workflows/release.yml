@@ -1,0 +1,73 @@
+name: package-and-release
+
+on:
+  schedule:
+    - cron: '37 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install Enigma Virtual Box
+        shell: pwsh
+        run: |
+          $exe = "$env:TEMP\enigmavb.exe"
+          Invoke-WebRequest -Uri 'https://enigmaprotector.com/assets/files/enigmavb.exe' -OutFile $exe -UseBasicParsing
+          Start-Process -FilePath $exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
+          Get-ChildItem 'C:\Program Files (x86)\Enigma Virtual Box','C:\Program Files\Enigma Virtual Box' -Filter enigmavbconsole.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+
+      - name: Resolve latest @deepseek-ai/dsh version
+        id: version
+        shell: pwsh
+        run: |
+          $v = (Invoke-RestMethod -Uri 'https://registry.npmjs.org/@deepseek-ai/dsh/latest' -UseBasicParsing).version
+          Write-Output "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
+          Write-Host "Latest @deepseek-ai/dsh = $v"
+
+      - name: Check whether release already exists
+        id: check
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "v${{ steps.version.outputs.version }}"
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Output "exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
+            Write-Host "Release $tag already exists; skipping."
+          } else {
+            Write-Output "exists=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
+            Write-Host "Release $tag does not exist; building."
+          }
+
+      - name: Package (single exe via Enigma Virtual Box)
+        if: steps.check.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          ./scripts/package.ps1 -Version "${{ steps.version.outputs.version }}"
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.exists != 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $exe = Get-ChildItem dist -Filter 'DeepSeek-Harness-Desktop.exe' | Select-Object -First 1
+          gh release create "v${{ steps.version.outputs.version }}" $exe.FullName --title "DeepSeek Harness Desktop v${{ steps.version.outputs.version }}" --notes "Automated single-exe build of @deepseek-ai/dsh v${{ steps.version.outputs.version }} (Enigma Virtual Box). Download, double-click DeepSeek-Harness-Desktop.exe to run. No Node.js required."

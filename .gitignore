@@ -1,0 +1,6 @@
+/build/
+/dist/
+launcher/*.exe
+*.zip
+launcher/*.syso
+scripts/*.evb
