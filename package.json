@@ -1,0 +1,22 @@
+{
+  "name": "deepseek-harness-desktop",
+  "productName": "DeepSeek Harness Desktop",
+  "version": "0.1.0-rc.6",
+  "description": "Desktop wrapper for DeepSeek Harness: a single-file Windows app powered by Electron. No Node.js or Microsoft Edge required.",
+  "main": "electron/main.js",
+  "author": {
+    "name": "DeepSeek Harness Desktop contributors"
+  },
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "smoke": "electron . --smoke",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^25.1.8"
+  }
+}

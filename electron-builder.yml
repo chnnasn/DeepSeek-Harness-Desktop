@@ -1,0 +1,29 @@
+appId: com.deepseek.harness.desktop
+productName: DeepSeek Harness Desktop
+copyright: MIT
+directories:
+  output: dist
+  buildResources: build
+files:
+  - electron/**/*
+  - package.json
+extraResources:
+  # dsh runtime (installed by scripts/package.ps1 into build/runtime/dsh).
+  # Kept outside asar as real files: node needs to spawn/load them, including
+  # native addons (sharp, node-pty, koffi, ...).
+  - from: build/runtime/dsh
+    to: dsh
+  - from: launcher/icon.ico
+    to: icon.ico
+asar: true
+npmRebuild: false
+compression: normal
+win:
+  icon: launcher/icon.ico
+  target:
+    - target: portable
+      arch:
+        - x64
+portable:
+  artifactName: DeepSeek-Harness-Desktop.exe
+  useZip: true

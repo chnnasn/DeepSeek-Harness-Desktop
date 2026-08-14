@@ -20,23 +20,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-
-      - name: Install Enigma Virtual Box
-        shell: pwsh
-        run: |
-          $exe = "$env:TEMP\enigmavb.exe"
-          Invoke-WebRequest -Uri 'https://enigmaprotector.com/assets/files/enigmavb.exe' -OutFile $exe -UseBasicParsing
-          Start-Process -FilePath $exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
-          Get-ChildItem 'C:\Program Files (x86)\Enigma Virtual Box','C:\Program Files\Enigma Virtual Box' -Filter enigmavbconsole.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          cache: npm
 
       - name: Resolve @deepseek-ai/dsh version
         id: version
@@ -83,7 +71,11 @@ jobs:
           }
           exit 0
 
-      - name: Package (single exe via Enigma Virtual Box)
+      - name: Install build dependencies
+        if: steps.check.outputs.build == 'true'
+        run: npm ci
+
+      - name: Package (portable exe via electron-builder)
         if: steps.check.outputs.build == 'true'
         shell: pwsh
         run: |
@@ -103,7 +95,7 @@ jobs:
           $version = "${{ steps.version.outputs.version }}"
           $tag = "v$version"
           $title = "DeepSeek Harness Desktop v$version"
-          $notes = "Automated single-exe build of @deepseek-ai/dsh v$version (Enigma Virtual Box). Download, double-click DeepSeek-Harness-Desktop.exe to run. No Node.js required."
+          $notes = "Automated portable build of @deepseek-ai/dsh v$version (Electron). Download, double-click DeepSeek-Harness-Desktop.exe to run. No Node.js or Microsoft Edge required."
 
           if ("${{ steps.check.outputs.exists }}" -eq 'true') {
             gh release upload $tag $exe.FullName --clobber
