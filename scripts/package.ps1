@@ -56,7 +56,9 @@ function New-EvbProject {
     [void]$sb.AppendLine('    <Enabled>False</Enabled>')
     [void]$sb.AppendLine('  </Packaging>')
     [void]$sb.AppendLine('  <Options>')
-    [void]$sb.AppendLine('    <ShareVirtualSystem>False</ShareVirtualSystem>')
+    # node.exe is launched as a child process and must be able to read the
+    # bundled runtime\dsh tree from the parent's virtual filesystem.
+    [void]$sb.AppendLine('    <ShareVirtualSystem>True</ShareVirtualSystem>')
     [void]$sb.AppendLine('    <MapExecutableWithTemporaryFile>True</MapExecutableWithTemporaryFile>')
     [void]$sb.AppendLine('    <TemporaryFileMask/>')
     [void]$sb.AppendLine('    <AllowRunningOfVirtualExeFiles>True</AllowRunningOfVirtualExeFiles>')

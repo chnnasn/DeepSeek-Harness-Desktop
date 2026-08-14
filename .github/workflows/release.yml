@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '37 3 * * *'
   workflow_dispatch:
+    inputs:
+      version:
+        description: '@deepseek-ai/dsh version (leave blank to use npm latest)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -33,43 +38,79 @@ jobs:
           Start-Process -FilePath $exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
           Get-ChildItem 'C:\Program Files (x86)\Enigma Virtual Box','C:\Program Files\Enigma Virtual Box' -Filter enigmavbconsole.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
 
-      - name: Resolve latest @deepseek-ai/dsh version
+      - name: Resolve @deepseek-ai/dsh version
         id: version
         shell: pwsh
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
-          $v = (Invoke-RestMethod -Uri 'https://registry.npmjs.org/@deepseek-ai/dsh/latest' -UseBasicParsing).version
+          $requested = ([string]$env:REQUESTED_VERSION).Trim()
+          if ($requested) {
+            $v = $requested -replace '^v', ''
+            $resolved = (npm view "@deepseek-ai/dsh@$v" version).Trim()
+            if ($LASTEXITCODE -ne 0 -or -not $resolved) {
+              throw "@deepseek-ai/dsh version '$v' was not found on npm."
+            }
+            $v = $resolved
+          } else {
+            $v = (Invoke-RestMethod -Uri 'https://registry.npmjs.org/@deepseek-ai/dsh/latest' -UseBasicParsing).version
+          }
           Write-Output "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
-          Write-Host "Latest @deepseek-ai/dsh = $v"
+          Write-Host "Selected @deepseek-ai/dsh = $v"
 
       - name: Check whether release already exists
         id: check
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           $tag = "v${{ steps.version.outputs.version }}"
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) {
             Write-Output "exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
-            Write-Host "Release $tag already exists; skipping."
+            if ($env:EVENT_NAME -eq 'workflow_dispatch') {
+              Write-Output "build=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
+              Write-Host "Release $tag exists; the manual run will rebuild and update it."
+            } else {
+              Write-Output "build=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
+              Write-Host "Release $tag already exists; scheduled run is skipping it."
+            }
           } else {
             Write-Output "exists=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
+            Write-Output "build=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
             Write-Host "Release $tag does not exist; building."
           }
           exit 0
 
       - name: Package (single exe via Enigma Virtual Box)
-        if: steps.check.outputs.exists != 'true'
+        if: steps.check.outputs.build == 'true'
         shell: pwsh
         run: |
           ./scripts/package.ps1 -Version "${{ steps.version.outputs.version }}"
-          exit 0
 
-      - name: Create GitHub Release
-        if: steps.check.outputs.exists != 'true'
+      - name: Create or update GitHub Release
+        if: steps.check.outputs.build == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $exe = Get-ChildItem dist -Filter 'DeepSeek-Harness-Desktop.exe' | Select-Object -First 1
-          gh release create "v${{ steps.version.outputs.version }}" $exe.FullName --title "DeepSeek Harness Desktop v${{ steps.version.outputs.version }}" --notes "Automated single-exe build of @deepseek-ai/dsh v${{ steps.version.outputs.version }} (Enigma Virtual Box). Download, double-click DeepSeek-Harness-Desktop.exe to run. No Node.js required."
+          if (-not $exe) {
+            throw 'Packaged executable was not found.'
+          }
+
+          $version = "${{ steps.version.outputs.version }}"
+          $tag = "v$version"
+          $title = "DeepSeek Harness Desktop v$version"
+          $notes = "Automated single-exe build of @deepseek-ai/dsh v$version (Enigma Virtual Box). Download, double-click DeepSeek-Harness-Desktop.exe to run. No Node.js required."
+
+          if ("${{ steps.check.outputs.exists }}" -eq 'true') {
+            gh release upload $tag $exe.FullName --clobber
+            if ($LASTEXITCODE -ne 0) { throw "Failed to upload asset to $tag." }
+            gh release edit $tag --title $title --notes $notes
+            if ($LASTEXITCODE -ne 0) { throw "Failed to update release $tag." }
+          } else {
+            gh release create $tag $exe.FullName --title $title --notes $notes
+            if ($LASTEXITCODE -ne 0) { throw "Failed to create release $tag." }
+          }
