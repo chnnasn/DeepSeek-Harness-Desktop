@@ -64,6 +64,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1 -Version 0.1.0-rc
 - **Windows 提示"未知发布者"？** 尚未代码签名，选"仍要运行"即可。
 - **支持 mac / Linux 吗？** 暂只打包 Windows x64，后续可按需增加。
 
+
+- **选择目录时弹出的是应用内浏览框而不是系统对话框？** 上游 dsh 的 Windows 原生文件夹选择器在部分机器上不稳定（会报 `win32 folder dialog worker exited...`），打包时已强制改用 dsh 官方应用内目录浏览器，支持浏览、手动输入路径、新建文件夹，功能一致且更稳定。
+
 ## 许可与声明
 
 - 本项目代码：MIT（见 `LICENSE`）
