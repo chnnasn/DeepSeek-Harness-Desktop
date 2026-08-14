@@ -23,6 +23,7 @@
 
 ```
 npm install @deepseek-ai/dsh    → build\runtime\dsh\...（dsh 及全部依赖）
+scripts\prune-dsh.ps1           → 瘦身：删多平台二进制 / 调试符号 / 类型声明 / 文档
 electron-builder (nsis)         → dist\DeepSeek-Harness-Desktop-Setup.exe
 ```
 
@@ -32,6 +33,7 @@ electron-builder (nsis)         → dist\DeepSeek-Harness-Desktop-Setup.exe
   - 加载 `http://127.0.0.1:3080` 到内置 Chromium 窗口
   - 关窗/退出时结束自己启动的服务进程树（`taskkill /T /F`，只针对自己的 PID）
 - 运行时（dsh）放在安装目录的 `resources\dsh`，保持真实文件以便 Node 加载原生模块（sharp、node-pty、koffi 等）
+- 打包时用 `scripts\prune-dsh.ps1` 给 dsh 运行时瘦身：删除 x64 Windows 用不到的多平台预编译（arm64/darwin）、调试符号（`.pdb`）、TypeScript 类型声明（`.d.ts`）、文档/测试文件，以及 node-pty 的构建源码树。安装包因此从 ~150MB 降到 ~99MB
 
 ## 本地打包（维护者）
 
@@ -60,7 +62,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1 -Version 0.1.0-rc
 ## FAQ
 
 - **运行时内存多大？** 实测约 600~700MB（Chromium 主进程 + 渲染 + GPU + dsh 服务），Electron 应用正常水平。
-- **安装目录多大？** 约 580MB（Electron ~324MB + dsh ~256MB）。
+- **安装目录多大？** 约 430MB（Electron ~324MB + dsh ~110MB，已 prune 掉多平台二进制、调试符号、类型声明等）。
+- **安装包多大？** 约 99MB。
 - **Windows 提示"未知发布者"？** 尚未代码签名，选"仍要运行"即可。
 - **支持 mac / Linux 吗？** 暂只打包 Windows x64，后续可按需增加。
 
