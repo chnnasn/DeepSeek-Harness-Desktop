@@ -75,7 +75,7 @@ jobs:
         if: steps.check.outputs.build == 'true'
         run: npm ci
 
-      - name: Package (portable exe via electron-builder)
+      - name: Package (NSIS setup via electron-builder)
         if: steps.check.outputs.build == 'true'
         shell: pwsh
         run: |
@@ -87,7 +87,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $exe = Get-ChildItem dist -Filter 'DeepSeek-Harness-Desktop.exe' | Select-Object -First 1
+          $exe = Get-ChildItem dist -Filter 'DeepSeek-Harness-Desktop-Setup.exe' | Select-Object -First 1
           if (-not $exe) {
             throw 'Packaged executable was not found.'
           }
@@ -95,7 +95,7 @@ jobs:
           $version = "${{ steps.version.outputs.version }}"
           $tag = "v$version"
           $title = "DeepSeek Harness Desktop v$version"
-          $notes = "Automated portable build of @deepseek-ai/dsh v$version (Electron). Download, double-click DeepSeek-Harness-Desktop.exe to run. No Node.js or Microsoft Edge required."
+          $notes = "Automated NSIS installer build of @deepseek-ai/dsh v$version (Electron). Install once, then launch from the Start menu or desktop shortcut. Uninstall via the built-in uninstaller / Control Panel. No Node.js or Microsoft Edge required."
 
           if ("${{ steps.check.outputs.exists }}" -eq 'true') {
             gh release upload $tag $exe.FullName --clobber

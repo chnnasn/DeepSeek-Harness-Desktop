@@ -26,9 +26,9 @@ if (-not (Test-Path (Join-Path $repoRoot "node_modules\.bin\electron-builder.cmd
     if ($LASTEXITCODE -ne 0) { throw "root npm install failed" }
 }
 
-Write-Host "[3/4] Packaging with electron-builder (portable single exe) ..."
+Write-Host "[3/4] Packaging with electron-builder (NSIS setup) ..."
 $builder = Join-Path $repoRoot "node_modules\.bin\electron-builder.cmd"
-& $builder --win portable --x64
+& $builder --win nsis --x64
 if ($LASTEXITCODE -ne 0) { throw "electron-builder failed" }
 
 Write-Host "[4/4] Done."

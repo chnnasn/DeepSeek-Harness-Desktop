@@ -21,9 +21,19 @@ compression: normal
 win:
   icon: launcher/icon.ico
   target:
-    - target: portable
+    - target: nsis
       arch:
         - x64
-portable:
-  artifactName: DeepSeek-Harness-Desktop.exe
-  useZip: true
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: DeepSeek Harness Desktop
+  artifactName: DeepSeek-Harness-Desktop-Setup.exe
+  installerIcon: launcher/icon.ico
+  uninstallerIcon: launcher/icon.ico
+  # Keep the dsh profile/plugins on uninstall; delete manually if wanted.
+  deleteAppDataOnUninstall: false
+  runAfterFinish: true
