@@ -37,3 +37,8 @@ nsis:
   # Keep the dsh profile/plugins on uninstall; delete manually if wanted.
   deleteAppDataOnUninstall: false
   runAfterFinish: true
+  # Disable differential updates (blockmap): this project publishes via GitHub
+  # Release (full download) and does not use electron-updater. Keeping it only
+  # forces non-solid 7z, which inflates the package. Off -> solid compression is
+  # restored and the setup shrinks ~24% (150 -> ~114 MB).
+  differentialPackage: false

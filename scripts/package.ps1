@@ -32,6 +32,13 @@ if (-not (Test-Path $workerDst)) { throw "dsh worker target not found: $workerDs
 Copy-Item -LiteralPath $workerSrc -Destination $workerDst -Force
 Write-Host "    replaced dsh worker with Electron-dialog delegate"
 
+# Prune the dsh runtime for a x64-Windows-only target: drop other-platform
+# prebuilds, sharp's WASM fallback, and dev-only files (.map/.d.ts/.md/tests/
+# docs). Nothing removed here is ever loaded by the x64 Windows runtime, so it
+# is pure size/install-time win with zero behavior change.
+Write-Host "[3.5/5] Pruning dsh runtime (platform binaries + dev files)..."
+& (Join-Path $repoRoot "scripts\prune-dsh.ps1") -DshRoot $dshRoot
+
 # electron + electron-builder are devDependencies at the repo root. Install
 # them on demand so local packagers only need Node.js (no Go, no EVB).
 if (-not (Test-Path (Join-Path $repoRoot "node_modules\.bin\electron-builder.cmd"))) {
