@@ -29,8 +29,10 @@ function New-EvbProject {
     [void]$sb.AppendLine('        <OverwriteAttributes>False</OverwriteAttributes>')
     [void]$sb.AppendLine('        <HideFromDialogs>0</HideFromDialogs>')
     [void]$sb.AppendLine('        <Files>')
-    Emit-EvbNode $sb (Join-Path $RootPath 'dsh') 'dsh' 10
-    Emit-EvbFileNode $sb (Join-Path $RootPath 'node.exe') 10
+    # The launcher resolves bundled files relative to the executable as
+    # runtime\node.exe and runtime\dsh\.... Keep the same directory level in
+    # the virtual filesystem instead of placing both entries at its root.
+    Emit-EvbNode $sb $RootPath 'runtime' 10
     [void]$sb.AppendLine('        </Files>')
     [void]$sb.AppendLine('      </File>')
     [void]$sb.AppendLine('    </Files>')
