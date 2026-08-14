@@ -28,7 +28,7 @@ if (-not (Test-Path (Join-Path $repoRoot "node_modules\.bin\electron-builder.cmd
 
 Write-Host "[3/4] Packaging with electron-builder (NSIS setup) ..."
 $builder = Join-Path $repoRoot "node_modules\.bin\electron-builder.cmd"
-& $builder --win nsis --x64
+& $builder --win nsis --x64 --publish never
 if ($LASTEXITCODE -ne 0) { throw "electron-builder failed" }
 
 Write-Host "[4/4] Done."

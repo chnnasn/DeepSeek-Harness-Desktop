@@ -13,7 +13,7 @@
     "start": "electron .",
     "smoke": "electron . --smoke",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder --win nsis"
+    "dist": "electron-builder --win nsis --publish never"
   },
   "devDependencies": {
     "electron": "^38.0.0",
