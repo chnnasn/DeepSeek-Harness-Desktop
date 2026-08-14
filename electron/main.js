@@ -3,6 +3,7 @@
 const { app, BrowserWindow, dialog } = require('electron');
 const { spawn, execFileSync } = require('child_process');
 const http = require('http');
+const net = require('net');
 const fs = require('fs');
 const path = require('path');
 
@@ -112,12 +113,85 @@ function killServer() {
 function shutdown() {
   if (quitting) return;
   quitting = true;
+  stopPickerServer();
   killServer();
+}
+
+
+// ---- native folder picker bridge ------------------------------------------
+// dsh's Windows native picker spawns worker.cjs (koffi/COM) which is unstable
+// on some machines. We replace that worker with one that asks the Electron
+// main process to show the OS folder dialog (dialog.showOpenDialog) and reply
+// over this localhost socket. Only reachable from the bundled dsh runtime.
+
+let pickerServer = null;
+
+function startPickerServer() {
+  return new Promise((resolve, reject) => {
+    pickerServer = net.createServer((socket) => {
+      let buffer = '';
+      socket.on('data', (chunk) => {
+        buffer += chunk.toString('utf8');
+        let nl;
+        while ((nl = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, nl);
+          buffer = buffer.slice(nl + 1);
+          if (!line) continue;
+          let req;
+          try {
+            req = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          handlePickRequest(req, socket);
+        }
+      });
+    });
+    pickerServer.on('error', reject);
+    pickerServer.listen(0, '127.0.0.1', () => resolve(pickerServer.address().port));
+  });
+}
+
+async function handlePickRequest(req, socket) {
+  try {
+    const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+    const result = await dialog.showOpenDialog(win, {
+      title: req.title || 'Select Workspace Directory',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    const path =
+      result && !result.canceled && result.filePaths && result.filePaths[0]
+        ? result.filePaths[0]
+        : null;
+    socket.write(JSON.stringify({ id: req.id, path }) + '\n');
+  } catch (err) {
+    socket.write(
+      JSON.stringify({ id: req.id, path: null, error: err && err.message ? err.message : String(err) }) + '\n'
+    );
+  } finally {
+    try {
+      socket.end();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function stopPickerServer() {
+  if (pickerServer) {
+    try {
+      pickerServer.close();
+    } catch {
+      /* ignore */
+    }
+    pickerServer = null;
+  }
 }
 
 // ---- app flow --------------------------------------------------------------
 
 async function main() {
+  const pickerPort = await startPickerServer();
   const bin = dshBinPath();
   if (!fs.existsSync(bin)) {
     throw new Error('Cannot find dsh entry:\n' + bin);
@@ -131,6 +205,7 @@ async function main() {
       env: {
         ...process.env,
         ELECTRON_RUN_AS_NODE: '1',
+        DSH_PICKER_PORT: String(pickerPort),
         DSH_HOME: path.join(dataDir, 'dsh-home'),
       },
       cwd: path.dirname(bin),

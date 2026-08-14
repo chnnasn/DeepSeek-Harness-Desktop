@@ -65,7 +65,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1 -Version 0.1.0-rc
 - **支持 mac / Linux 吗？** 暂只打包 Windows x64，后续可按需增加。
 
 
-- **选择目录时弹出的是应用内浏览框而不是系统对话框？** 上游 dsh 的 Windows 原生文件夹选择器在部分机器上不稳定（会报 `win32 folder dialog worker exited...`），打包时已强制改用 dsh 官方应用内目录浏览器，支持浏览、手动输入路径、新建文件夹，功能一致且更稳定。
+- **选择目录时弹的是 Windows 系统对话框吗？** 是的。上游 dsh 自带的原生文件夹选择器在部分机器上不稳定（会报 `win32 folder dialog worker exited...`），打包时已把它替换为"由 Electron 主进程调用系统原生目录对话框（IFileDialog）"的实现——外观就是标准 Windows 文件夹选择框，稳定不崩。
 
 ## 许可与声明
 

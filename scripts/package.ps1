@@ -18,22 +18,19 @@ Write-Host "[2/5] Installing @deepseek-ai/dsh@$Version (production deps only)...
 npm install "@deepseek-ai/dsh@$Version" --omit=dev --prefix $dshRoot --no-audit --no-fund
 if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
 
-# Upstream dsh 0.1.0-rc.x forces the native Win32 COM folder dialog on Windows,
-# whose koffi-driven worker is unstable on some machines and fails with
-# "win32 folder dialog worker exited before reporting a result". The dsh
-# browse backend (in-app directory browser) is fully supported and works
-# everywhere; make Windows use it until upstream ships a fix.
-Write-Host "[3/5] Patching dsh directory picker to use the browse backend on Windows..."
-$pickerAuto = Join-Path $dshRoot "node_modules\@deepseek-ai\dsh-host-directory-picker-auto\lib\index.js"
-if (-not (Test-Path $pickerAuto)) { throw "dsh directory-picker-auto not found: $pickerAuto" }
-$pickerContent = Get-Content $pickerAuto -Raw
-$pickerOld = 'if (facts.platform === "darwin" || facts.platform === "win32") return "native";'
-$pickerNew = 'if (facts.platform === "darwin") return "native";'
-if (-not $pickerContent.Contains($pickerOld)) {
-    throw "directory-picker-auto marker not found; upstream may have changed, please re-check the patch"
-}
-Set-Content -Path $pickerAuto -Value ($pickerContent.Replace($pickerOld, $pickerNew)) -Encoding UTF8 -NoNewline
-Write-Host "    patched: win32 directory picker -> browse"
+# dsh's Windows native folder picker drives the Win32 COM dialog through a
+# koffi worker that is unstable on some machines ("win32 folder dialog worker
+# exited before reporting a result"). Replace that worker with our delegate:
+# it asks the Electron main process to show the OS dialog
+# (dialog.showOpenDialog -> IFileDialog) and replies over a localhost socket.
+# Keeps dsh's native flow AND the native Windows dialog UX.
+Write-Host "[3/5] Replacing dsh folder-picker worker with Electron-dialog delegate..."
+$workerSrc = Join-Path $repoRoot "electron\win32-dialog-worker.cjs"
+$workerDst = Join-Path $dshRoot "node_modules\@deepseek-ai\dsh-host-directory-picker-native\lib\worker.cjs"
+if (-not (Test-Path $workerSrc)) { throw "worker source not found: $workerSrc" }
+if (-not (Test-Path $workerDst)) { throw "dsh worker target not found: $workerDst" }
+Copy-Item -LiteralPath $workerSrc -Destination $workerDst -Force
+Write-Host "    replaced dsh worker with Electron-dialog delegate"
 
 # electron + electron-builder are devDependencies at the repo root. Install
 # them on demand so local packagers only need Node.js (no Go, no EVB).
