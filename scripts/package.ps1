@@ -55,17 +55,6 @@ if (-not (Test-Path $invDst)) { throw "inventory client target not found: $invDs
 Copy-Item -LiteralPath $invSrc -Destination $invDst -Force
 Write-Host "    replaced plugin-inventory client with toggle-enabled build"
 
-# Patch the theme (Appearance) row: embed the custom-appearance page (color
-# tokens + optional background image) served by the Electron shell at
-# /appearance-page, so it lives inside the General settings like other rows.
-Write-Host "[3.27/5] Patching theme row (custom appearance)..."
-$themeSrc = Join-Path $repoRoot "scripts\theme-client.patch.js"
-$themeDst = Join-Path $dshRoot "node_modules\@deepseek-ai\dsh-client-ui-theme\lib\client.js"
-if (-not (Test-Path $themeSrc)) { throw "theme patch source not found: $themeSrc" }
-if (-not (Test-Path $themeDst)) { throw "theme client target not found: $themeDst" }
-Copy-Item -LiteralPath $themeSrc -Destination $themeDst -Force
-Write-Host "    replaced theme client with custom-appearance build"
-
 # Hide console windows for every dsh-spawned child process. Upstream
 # dsh-subprocess-local spawns without `windowsHide`, so each pwsh/bash/ripgrep
 # invocation flashes a console window on Windows. One-line fix, applied as a

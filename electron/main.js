@@ -414,24 +414,6 @@ function startPluginServer() {
       } catch {
         pathname = '';
       }
-      if (req.method === 'GET' && pathname === '/appearance') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(readAppearanceConfig()));
-        return;
-      }
-      if (req.method === 'POST' && pathname === '/appearance') {
-        readBody(req).then(async (payload) => {
-          const config = payload.config && typeof payload.config === 'object' ? payload.config : {};
-          writeAppearanceConfig(config);
-          await applyAppearance();
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true }));
-        }).catch((err) => {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, error: err.message }));
-        });
-        return;
-      }
       if (req.method === 'GET' && pathname === '/registries') {
         listRegistries().then(
           (result) => {
@@ -560,63 +542,6 @@ function stopPluginServer() {
   }
 }
 
-// ---- appearance customization ----------------------------------------------
-// User-overridable look: a few CSS color tokens plus an optional background
-// image, persisted under $DSH_HOME/appearance.json and injected into the dsh
-// web surface via insertCSS (dsh themes everything through --dsw-alias-* vars).
-
-function appearanceConfigPath() {
-  return path.join(dataDir, 'dsh-home', 'appearance.json');
-}
-
-function readAppearanceConfig() {
-  const p = appearanceConfigPath();
-  if (!fs.existsSync(p)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(p, 'utf8'));
-  } catch {
-    return {};
-  }
-}
-
-function writeAppearanceConfig(config) {
-  const p = appearanceConfigPath();
-  fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(config, null, 2));
-}
-
-function buildAppearanceCss(config) {
-  const vars = [];
-  if (typeof config.brand === 'string' && config.brand) vars.push(`--dsw-alias-brand-primary: ${config.brand};`);
-  if (typeof config.accent === 'string' && config.accent) vars.push(`--dsw-alias-state-business-primary: ${config.accent};`);
-  if (typeof config.bg === 'string' && config.bg) vars.push(`--dsw-alias-bg-base: ${config.bg};`);
-  if (typeof config.text === 'string' && config.text) vars.push(`--dsw-alias-label-primary: ${config.text};`);
-  let css = '';
-  if (vars.length) css += `:root {\n  ${vars.join('\n  ')}\n}\n`;
-  if (typeof config.backgroundImage === 'string' && config.backgroundImage) {
-    css += `body::before {\n  content: "";\n  position: fixed;\n  inset: 0;\n  z-index: -1;\n  background-image: url(${config.backgroundImage});\n  background-size: cover;\n  background-position: center;\n  opacity: ${typeof config.backgroundOpacity === 'number' ? config.backgroundOpacity : 0.15};\n}\n`;
-  }
-  return css;
-}
-
-let appearanceCssKey = null;
-
-async function applyAppearance() {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  const css = buildAppearanceCss(readAppearanceConfig());
-  if (appearanceCssKey !== null) {
-    try {
-      await mainWindow.webContents.removeInsertedCSS(appearanceCssKey);
-    } catch {
-      /* ignore */
-    }
-    appearanceCssKey = null;
-  }
-  if (css) {
-    appearanceCssKey = await mainWindow.webContents.insertCSS(css);
-  }
-}
-
 // ---- app flow --------------------------------------------------------------
 
 async function main() {
@@ -722,11 +647,6 @@ function createWindow() {
       event.preventDefault();
       if (/^https?:\/\//i.test(url)) shell.openExternal(url);
     }
-  });
-
-  // Re-apply the persisted appearance every time the dsh page finishes loading.
-  mainWindow.webContents.on('did-finish-load', () => {
-    applyAppearance();
   });
 
   mainWindow.loadURL(SERVER_URL);
