@@ -90,6 +90,23 @@ if ($subprocText.Contains($spawnOld)) {
 # prebuilds, sharp's WASM fallback, and dev-only files (.map/.d.ts/.md/tests/
 # docs). Nothing removed here is ever loaded by the x64 Windows runtime, so it
 # is pure size/install-time win with zero behavior change.
+# Remove the desktop pet (@linxin666/dsh-pet) from the default web profile:
+# drop its insert entry from the bundled web-ui-all patch list so it never
+# mounts at boot. The package dir itself is pruned below.
+Write-Host "[3.4/5] Removing desktop pet from default web profile..."
+$petPatchPath = Join-Path $dshRoot "node_modules\@linxin666\dsh-web-ui-all\cordis.patch.yml"
+if (-not (Test-Path $petPatchPath)) { throw "web-ui-all patch not found: $petPatchPath" }
+$petPatchText = Get-Content -LiteralPath $petPatchPath -Raw
+$petPattern = '(?m)^# from \.\./dsh-pet\r?\n- insert:\r?\n    - id: pet\r?\n      name: ''@linxin666/dsh-pet''\r?\n'
+if ($petPatchText -match $petPattern) {
+    $petPatchText = $petPatchText -replace $petPattern, ''
+    [System.IO.File]::WriteAllText($petPatchPath, $petPatchText, (New-Object System.Text.UTF8Encoding($false)))
+    Write-Host "    removed pet entry from web-ui-all patch list"
+} elseif ($petPatchText -notmatch 'id: pet') {
+    Write-Host "    pet entry already removed"
+} else {
+    throw "web-ui-all patch pet entry not recognized (dsh-web-ui-all may have changed)"
+}
 Write-Host "[3.5/5] Pruning dsh runtime (platform binaries + dev files)..."
 & (Join-Path $repoRoot "scripts\prune-dsh.ps1") -DshRoot $dshRoot
 

@@ -70,6 +70,11 @@ if (Test-Path $np) {
     }
 }
 
+# 6) desktop pet — removed from the default web profile (see package.ps1);
+#    drop the package so it is not shipped at all. No other bundled package
+#    imports it statically, so removing the dir is safe.
+$petDir = Join-Path $nm "@linxin666\dsh-pet"
+if (Test-Path $petDir) { Remove-Item $petDir -Recurse -Force -ErrorAction SilentlyContinue }
 $after = Get-SizeMB $nm
 $files = (Get-ChildItem $nm -Recurse -File -ErrorAction SilentlyContinue).Count
 
