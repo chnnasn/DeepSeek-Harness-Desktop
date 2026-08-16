@@ -14,8 +14,8 @@ if (Test-Path $dist) { Remove-Item $dist -Recurse -Force }
 if (Test-Path $work) { Remove-Item $work -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $dist, $dshRoot | Out-Null
 
-Write-Host "[2/5] Installing @deepseek-ai/dsh@$Version (production deps only)..."
-npm install "@deepseek-ai/dsh@$Version" pnpm --omit=dev --prefix $dshRoot --no-audit --no-fund
+Write-Host "[2/5] Installing dsh + pnpm + bundled community plugins..."
+npm install "@deepseek-ai/dsh@$Version" pnpm "@linxin666/dsh-web-ui-all" --omit=dev --prefix $dshRoot --no-audit --no-fund
 if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
 
 # dsh's Windows native folder picker drives the Win32 COM dialog through a
@@ -31,6 +31,17 @@ if (-not (Test-Path $workerSrc)) { throw "worker source not found: $workerSrc" }
 if (-not (Test-Path $workerDst)) { throw "dsh worker target not found: $workerDst" }
 Copy-Item -LiteralPath $workerSrc -Destination $workerDst -Force
 Write-Host "    replaced dsh worker with Electron-dialog delegate"
+
+# Default-bundle the all-in-one community plugin: add @linxin666/dsh-web-ui-all
+# to the web profile's shipped bundle template, so fresh profiles mount it
+# without `dsh plugin add`. The package itself is installed above.
+Write-Host "[3.1/5] Patching profile template (default community bundle)..."
+$bootSrc = Join-Path $repoRoot "scripts\dsh-app-boot.patch.js"
+$bootDst = Join-Path $dshRoot "node_modules\@deepseek-ai\dsh-app-boot\lib\index.js"
+if (-not (Test-Path $bootSrc)) { throw "dsh-app-boot patch source not found: $bootSrc" }
+if (-not (Test-Path $bootDst)) { throw "dsh-app-boot target not found: $bootDst" }
+Copy-Item -LiteralPath $bootSrc -Destination $bootDst -Force
+Write-Host "    replaced dsh-app-boot with default-bundle build"
 
 # Patch the plugin-inventory page: add a per-plugin enable/disable toggle that
 # writes the machine-local user patch layer through the Electron bridge in
