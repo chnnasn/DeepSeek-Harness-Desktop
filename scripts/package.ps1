@@ -15,7 +15,7 @@ if (Test-Path $work) { Remove-Item $work -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $dist, $dshRoot | Out-Null
 
 Write-Host "[2/5] Installing @deepseek-ai/dsh@$Version (production deps only)..."
-npm install "@deepseek-ai/dsh@$Version" --omit=dev --prefix $dshRoot --no-audit --no-fund
+npm install "@deepseek-ai/dsh@$Version" pnpm --omit=dev --prefix $dshRoot --no-audit --no-fund
 if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
 
 # dsh's Windows native folder picker drives the Win32 COM dialog through a
@@ -31,6 +31,60 @@ if (-not (Test-Path $workerSrc)) { throw "worker source not found: $workerSrc" }
 if (-not (Test-Path $workerDst)) { throw "dsh worker target not found: $workerDst" }
 Copy-Item -LiteralPath $workerSrc -Destination $workerDst -Force
 Write-Host "    replaced dsh worker with Electron-dialog delegate"
+
+# Patch the plugin-inventory page: add a per-plugin enable/disable toggle that
+# writes the machine-local user patch layer through the Electron bridge in
+# main.js (plugin toggle server on :3091). Upstream's inventory page is
+# read-only; this build of client.js adds the switch + "restart to apply".
+Write-Host "[3.25/5] Patching plugin-inventory page (plugin toggle)..."
+$invSrc = Join-Path $repoRoot "scripts\plugin-inventory-client.patch.js"
+$invDst = Join-Path $dshRoot "node_modules\@deepseek-ai\dsh-client-ui-settings-plugin-inventory\lib\client.js"
+if (-not (Test-Path $invSrc)) { throw "inventory client patch source not found: $invSrc" }
+if (-not (Test-Path $invDst)) { throw "inventory client target not found: $invDst" }
+Copy-Item -LiteralPath $invSrc -Destination $invDst -Force
+Write-Host "    replaced plugin-inventory client with toggle-enabled build"
+
+# Patch the theme (Appearance) row: embed the custom-appearance page (color
+# tokens + optional background image) served by the Electron shell at
+# /appearance-page, so it lives inside the General settings like other rows.
+Write-Host "[3.27/5] Patching theme row (custom appearance)..."
+$themeSrc = Join-Path $repoRoot "scripts\theme-client.patch.js"
+$themeDst = Join-Path $dshRoot "node_modules\@deepseek-ai\dsh-client-ui-theme\lib\client.js"
+if (-not (Test-Path $themeSrc)) { throw "theme patch source not found: $themeSrc" }
+if (-not (Test-Path $themeDst)) { throw "theme client target not found: $themeDst" }
+Copy-Item -LiteralPath $themeSrc -Destination $themeDst -Force
+Write-Host "    replaced theme client with custom-appearance build"
+
+# Hide console windows for every dsh-spawned child process. Upstream
+# dsh-subprocess-local spawns without `windowsHide`, so each pwsh/bash/ripgrep
+# invocation flashes a console window on Windows. One-line fix, applied as a
+# string patch so it survives dsh upgrades without carrying a full file copy.
+Write-Host "[3.3/5] Patching subprocess spawn (hide console windows)..."
+$subproc = Join-Path $dshRoot "node_modules\@deepseek-ai\dsh-subprocess-local\lib\index.js"
+$subprocText = Get-Content -LiteralPath $subproc -Raw
+
+$spawnOld = @'
+		cwd: spec.cwd,
+		env,
+		stdio: [
+'@
+
+$spawnNew = @'
+		cwd: spec.cwd,
+		env,
+		windowsHide: true,
+		stdio: [
+'@
+
+if ($subprocText.Contains($spawnOld)) {
+    $subprocText = $subprocText.Replace($spawnOld, $spawnNew)
+    [System.IO.File]::WriteAllText($subproc, $subprocText, (New-Object System.Text.UTF8Encoding($false)))
+    Write-Host "    added windowsHide: true to subprocess spawn"
+} elseif ($subprocText.Contains("windowsHide: true")) {
+    Write-Host "    subprocess spawn already patched"
+} else {
+    throw "subprocess-local spawn options not recognized (dsh may have changed it)"
+}
 
 # Prune the dsh runtime for a x64-Windows-only target: drop other-platform
 # prebuilds, sharp's WASM fallback, and dev-only files (.map/.d.ts/.md/tests/
