@@ -9,6 +9,10 @@
 - **启动快**：安装时解压一次，之后每次启动约 2~3 秒
 - **不依赖系统 Edge**：自带 Chromium 窗口
 - **单实例 + 关窗停服务**：重复启动不弹多窗口，关闭窗口自动结束后台服务
+- **插件商城**：内置社区库，可订阅 GitHub 库、搜索安装/卸载插件（设置 → 插件 → 插件商城）
+- **插件开关**：在插件列表逐个启用/停用插件，重启生效（设置 → 插件 → 插件列表）
+- **外观自定义**：主题色 + 背景图（设置 → 通用 → 外观 → 自定义）
+- **默认全家桶**：预装 `@linxin666/dsh-web-ui-all`（任务看板 / git 图 / 宠物 / 皮肤中心等）
 - **自动更新**：GitHub Actions 每天检查上游新版本并自动发布
 
 ## 快速开始
@@ -22,9 +26,10 @@
 ## 架构与打包流程
 
 ```
-npm install @deepseek-ai/dsh    → build\runtime\dsh\...（dsh 及全部依赖）
-scripts\prune-dsh.ps1           → 瘦身：删多平台二进制 / 调试符号 / 类型声明 / 文档
-electron-builder (nsis)         → dist\DeepSeek-Harness-Desktop-Setup.exe
+npm install dsh + pnpm + 全家桶插件   → build\runtime\dsh\...（dsh 及全部依赖）
+patch dsh（开关/商城/外观/默认 bundle）→ 打补丁
+scripts\prune-dsh.ps1                → 瘦身：删多平台二进制 / 调试符号 / 类型声明 / 文档
+electron-builder (nsis)              → dist\DeepSeek-Harness-Desktop-Setup.exe
 ```
 
 - Electron 主进程（`electron/main.js`）负责：
@@ -47,6 +52,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1 -Version 0.1.0-rc
 - 换图标：替换 `launcher\icon.ico` 后重新打包即可
 - 本地调试：`npm install` 后 `npm run start`
 
+## 插件与外观
+
+- **插件商城**：设置 → 插件 → 插件商城。内置官方库，可订阅 GitHub 社区库（仓库根放 `dsh-plugins.json`，格式 `{name, title, plugins:[{name,title,description,install}]}`）；插件卡片一键安装/卸载，顶部输入框可直接填 `npm 包名` / `github:user/repo` / `git+URL`。
+- **插件开关**：设置 → 插件 → 插件列表，展开卡片可启用/停用单个插件，写入用户 patch 层（`dsh-home\cordis.patch.yml`），重启生效。
+- **外观自定义**：设置 → 通用 → 外观，点「自定义」方块展开主题色 + 背景图；主题色即时生效，背景图作为全局半透明层。
+- **默认全家桶**：打包时预装 `@linxin666/dsh-web-ui-all` 并写进 web profile 默认 bundle，新安装即带任务看板 / git 图 / 宠物 / 皮肤中心等。
+- **外部链接**：界面里点击的任何 http/https 链接都在系统默认浏览器打开，不会在应用内新开窗口。
+
 ## 自动发布（GitHub Actions）
 
 `.github/workflows/release.yml` 每天定时并支持手动触发：读取 npm 上 `@deepseek-ai/dsh` 的 `latest` 版本（已发布则跳过）→ `npm ci` → `package.ps1` 打包 → `gh release create` 上传 Setup.exe。
@@ -62,8 +75,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1 -Version 0.1.0-rc
 ## FAQ
 
 - **运行时内存多大？** 实测约 600~700MB（Chromium 主进程 + 渲染 + GPU + dsh 服务），Electron 应用正常水平。
-- **安装目录多大？** 约 430MB（Electron ~324MB + dsh ~110MB，已 prune 掉多平台二进制、调试符号、类型声明等）。
-- **安装包多大？** 约 99MB。
+- **安装目录多大？** 约 550MB（Electron ~324MB + dsh ~230MB，含默认全家桶插件；已 prune 掉多平台二进制、调试符号、类型声明等）。
+- **安装包多大？** 约 130MB。
 - **Windows 提示"未知发布者"？** 尚未代码签名，选"仍要运行"即可。
 - **支持 mac / Linux 吗？** 暂只打包 Windows x64，后续可按需增加。
 
