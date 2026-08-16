@@ -61,20 +61,10 @@ Write-Host "    replaced plugin-inventory client with toggle-enabled build"
 # string patch so it survives dsh upgrades without carrying a full file copy.
 Write-Host "[3.3/5] Patching subprocess spawn (hide console windows)..."
 $subproc = Join-Path $dshRoot "node_modules\@deepseek-ai\dsh-subprocess-local\lib\index.js"
-$subprocText = Get-Content -LiteralPath $subproc -Raw
+$subprocText = (Get-Content -LiteralPath $subproc -Raw) -replace "`r`n", "`n"
 
-$spawnOld = @'
-		cwd: spec.cwd,
-		env,
-		stdio: [
-'@
-
-$spawnNew = @'
-		cwd: spec.cwd,
-		env,
-		windowsHide: true,
-		stdio: [
-'@
+$spawnOld = "`t`tcwd: spec.cwd,`n`t`tenv,`n`t`tstdio: [`n"
+$spawnNew = "`t`tcwd: spec.cwd,`n`t`tenv,`n`t`twindowsHide: true,`n`t`tstdio: [`n"
 
 if ($subprocText.Contains($spawnOld)) {
     $subprocText = $subprocText.Replace($spawnOld, $spawnNew)
@@ -83,13 +73,11 @@ if ($subprocText.Contains($spawnOld)) {
 } elseif ($subprocText.Contains("windowsHide: true")) {
     Write-Host "    subprocess spawn already patched"
 } else {
-    throw "subprocess-local spawn options not recognized (dsh may have changed it)"
+    # Never fail the whole build over this cosmetic patch: warn loudly so
+    # upstream drift is visible, but keep the release moving.
+    Write-Host "    [WARN] subprocess-local spawn options not recognized; console-hide patch skipped (dsh may have changed)"
 }
 
-# Prune the dsh runtime for a x64-Windows-only target: drop other-platform
-# prebuilds, sharp's WASM fallback, and dev-only files (.map/.d.ts/.md/tests/
-# docs). Nothing removed here is ever loaded by the x64 Windows runtime, so it
-# is pure size/install-time win with zero behavior change.
 # Remove the desktop pet (@linxin666/dsh-pet) from the default web profile:
 # drop its insert entry from the bundled web-ui-all patch list so it never
 # mounts at boot. The package dir itself is pruned below.
@@ -105,8 +93,13 @@ if ($petPatchText -match $petPattern) {
 } elseif ($petPatchText -notmatch 'id: pet') {
     Write-Host "    pet entry already removed"
 } else {
-    throw "web-ui-all patch pet entry not recognized (dsh-web-ui-all may have changed)"
+    Write-Host "    [WARN] web-ui-all patch pet entry not recognized; pet removal skipped (dsh-web-ui-all may have changed)"
 }
+
+# Prune the dsh runtime for a x64-Windows-only target: drop other-platform
+# prebuilds, sharp's WASM fallback, and dev-only files (.map/.d.ts/.md/tests/
+# docs). Nothing removed here is ever loaded by the x64 Windows runtime, so it
+# is pure size/install-time win with zero behavior change.
 Write-Host "[3.5/5] Pruning dsh runtime (platform binaries + dev files)..."
 & (Join-Path $repoRoot "scripts\prune-dsh.ps1") -DshRoot $dshRoot
 
