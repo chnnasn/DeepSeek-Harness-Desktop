@@ -12,7 +12,7 @@
 - **插件商城**：内置社区库，可订阅 GitHub 库、搜索安装/卸载插件（设置 → 插件 → 插件商城）
 - **插件开关**：在插件列表逐个启用/停用插件，重启生效（设置 → 插件 → 插件列表）
 - **外观自定义**：主题色 + 背景图（设置 → 通用 → 外观 → 自定义）
-- **默认全家桶**：预装 `@linxin666/dsh-web-ui-all`（任务看板 / git 图 / 宠物 / 皮肤中心等）
+- **默认全家桶**：预装 `@linxin666/dsh-web-ui-all`（任务看板 / git 图 / 皮肤中心等；桌面宠物已默认移除）
 - **自动更新**：GitHub Actions 每天检查上游新版本并自动发布
 
 ## 快速开始
@@ -52,12 +52,16 @@ powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1 -Version 0.1.0-rc
 - 换图标：替换 `launcher\icon.ico` 后重新打包即可
 - 本地调试：`npm install` 后 `npm run start`
 
+### 升级 dsh 版本（维护者）
+
+CI 每天取 npm 上 `@deepseek-ai/dsh` 的 latest 打包。**补丁与 dsh 版本强耦合**：`scripts\dsh-app-boot.patch.js` 与 `scripts\plugin-inventory-client.patch.js` 是整文件覆盖上游构建产物，`scripts\package.ps1` 里还有 worker 替换与子进程补丁。升级大版本后请核对/重新生成这些补丁；补丁失配不会中断打包（打 `[WARN]`），但会缺失对应功能，发版前检查打包日志。
+
 ## 插件与外观
 
 - **插件商城**：设置 → 插件 → 插件商城。内置官方库，可订阅 GitHub 社区库（仓库根放 `dsh-plugins.json`，格式 `{name, title, plugins:[{name,title,description,install}]}`）；插件卡片一键安装/卸载，顶部输入框可直接填 `npm 包名` / `github:user/repo` / `git+URL`。
 - **插件开关**：设置 → 插件 → 插件列表，展开卡片可启用/停用单个插件，写入用户 patch 层（`dsh-home\cordis.patch.yml`），重启生效。
 - **外观自定义**：设置 → 通用 → 外观，点「自定义」方块展开主题色 + 背景图；主题色即时生效，背景图作为全局半透明层。
-- **默认全家桶**：打包时预装 `@linxin666/dsh-web-ui-all` 并写进 web profile 默认 bundle，新安装即带任务看板 / git 图 / 宠物 / 皮肤中心等。
+- **默认全家桶**：打包时预装 `@linxin666/dsh-web-ui-all` 并写进 web profile 默认 bundle，新安装即带任务看板 / git 图 / 皮肤中心等（桌面宠物已默认移除，需要可在插件商城按包名 `@linxin666/dsh-pet` 装回）。
 - **外部链接**：界面里点击的任何 http/https 链接都在系统默认浏览器打开，不会在应用内新开窗口。
 
 ## 自动发布（GitHub Actions）
@@ -72,11 +76,18 @@ powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1 -Version 0.1.0-rc
 - 卸载：开始菜单卸载入口，或"控制面板 → 应用和功能"，自动清理安装目录、快捷方式与注册表
 - 运行数据（dsh profile、插件等）在 `%LOCALAPPDATA%\DeepSeek-Harness-Desktop\`，**卸载时默认保留**
 
+## 故障排查
+
+- **启动报错 "service exited unexpectedly (code 1)"？** 弹窗会显示 dsh 最近一次报错内容；完整日志在 `%LOCALAPPDATA%\DeepSeek-Harness-Desktop\dsh-service.log`。最常见的两类：
+  - `cannot resolve profile bundle ...`：profile 与安装包版本不匹配（比如用旧安装包跑过新版初始化的 profile）。重装最新 Setup.exe 即可，dsh 会自动把 profile 链接指到当前安装目录。
+  - 目录选择框 / git 图异常：git 图功能需要系统安装 [Git](https://git-scm.com) 并加入 PATH（应用未捆绑 git，属可选依赖）；PowerShell 优先用 PowerShell 7，没有则自动回退系统自带 5.1，无需处理。
+- **想找回桌面宠物？** 宠物已从默认全家桶移除（含运行时里的包）。需要时在插件商城按包名安装 `@linxin666/dsh-pet`，或执行 `dsh plugin --profile web add @linxin666/dsh-pet`。
+
 ## FAQ
 
 - **运行时内存多大？** 实测约 600~700MB（Chromium 主进程 + 渲染 + GPU + dsh 服务），Electron 应用正常水平。
 - **安装目录多大？** 约 550MB（Electron ~324MB + dsh ~230MB，含默认全家桶插件；已 prune 掉多平台二进制、调试符号、类型声明等）。
-- **安装包多大？** 约 130MB。
+- **安装包多大？** 约 117MB。
 - **Windows 提示"未知发布者"？** 尚未代码签名，选"仍要运行"即可。
 - **支持 mac / Linux 吗？** 暂只打包 Windows x64，后续可按需增加。
 
