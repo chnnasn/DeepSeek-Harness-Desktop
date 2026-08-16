@@ -25,6 +25,24 @@ let mainWindow = null;
 let server = null; // ChildProcess we spawned for `dsh web`
 let quitting = false;
 
+// Rolling tail of the dsh service's stderr, surfaced in the error dialog when
+// the service dies unexpectedly, plus a full log file for support.
+const DSH_STDERR_TAIL_LINES = 40;
+const dshLogFile = path.join(dataDir, 'dsh-service.log');
+let dshStderrTail = [];
+
+function captureDshStderr(chunk) {
+  try {
+    fs.appendFileSync(dshLogFile, chunk.toString('utf8'));
+  } catch {
+    /* ignore */
+  }
+  dshStderrTail.push(...chunk.toString('utf8').split(/\r?\n/));
+  if (dshStderrTail.length > DSH_STDERR_TAIL_LINES) {
+    dshStderrTail = dshStderrTail.slice(dshStderrTail.length - DSH_STDERR_TAIL_LINES);
+  }
+}
+
 // ---- single instance -------------------------------------------------------
 
 if (!app.requestSingleInstanceLock()) {
@@ -565,8 +583,10 @@ async function main() {
       },
       cwd: path.dirname(bin),
       windowsHide: true,
-      stdio: 'ignore',
+      stdio: ['ignore', 'ignore', 'pipe'],
     });
+    dshStderrTail = [];
+    server.stderr.on('data', captureDshStderr);
     server.on('error', (err) => {
       server = null;
       dialog.showErrorBox(APP_NAME, 'Failed to start service:\n' + err.message);
@@ -574,9 +594,15 @@ async function main() {
     server.on('exit', (code, signal) => {
       server = null;
       if (quitting) return;
+      const tail = dshStderrTail.filter((line) => line.trim()).slice(-10).join('\n');
       dialog.showErrorBox(
         APP_NAME,
-        'DeepSeek Harness service exited unexpectedly (code ' + (code ?? signal ?? 'unknown') + ').'
+        'DeepSeek Harness service exited unexpectedly (code ' +
+          (code ?? signal ?? 'unknown') +
+          ').' +
+          (tail ? '\n\n' + tail : '') +
+          '\n\nFull log: ' +
+          dshLogFile
       );
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
     });

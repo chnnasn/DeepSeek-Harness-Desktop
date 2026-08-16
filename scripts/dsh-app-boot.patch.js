@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { parseEnv } from "node:util";
 import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path";
 import * as yaml from "js-yaml";
@@ -429,6 +429,36 @@ function healProfilesModuleFallback(installAnchor, home = resolveDshHome()) {
 			anchor: manifestPath,
 			manifest: JSON.parse(readFileSync(manifestPath, "utf8"))
 		});
+	}
+	// Desktop bundling extension: the dsh installation may ship packages that
+	// are not part of dsh's own dependency closure (e.g. @linxin666/* community
+	// bundles, pnpm). Mirror the whole runtime node_modules into the flat
+	// fallback so every shipped package is resolvable from any profile;
+	// closure links above stay first, this only adds what they missed.
+	let installNodeModules;
+	for (let dir = dirname(installAnchor); dir !== dirname(dir); dir = dirname(dir)) {
+		const candidate = join(dir, "node_modules");
+		if (existsSync(candidate)) {
+			installNodeModules = candidate;
+			break;
+		}
+	}
+	if (installNodeModules !== void 0) {
+		for (const entry of readdirSync(installNodeModules)) {
+			const entryPath = join(installNodeModules, entry);
+			if (!lstatSync(entryPath).isDirectory()) continue;
+			if (entry.startsWith("@")) {
+				for (const name of readdirSync(entryPath)) {
+					const packageName = `${entry}/${name}`;
+					if (links.has(packageName)) continue;
+					const dir = join(entryPath, name);
+					if (existsSync(join(dir, "package.json"))) links.set(packageName, dir);
+				}
+			} else {
+				if (links.has(entry)) continue;
+				if (existsSync(join(entryPath, "package.json"))) links.set(entry, entryPath);
+			}
+		}
 	}
 	for (const [packageName, target] of links) {
 		const link = join(modulesDir, packageName);
