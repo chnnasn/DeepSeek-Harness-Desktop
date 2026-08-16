@@ -15,10 +15,6 @@ extraResources:
     to: dsh
   - from: launcher/icon.ico
     to: icon.ico
-  - from: electron/marketplace.html
-    to: marketplace.html
-  - from: electron/appearance.html
-    to: appearance.html
   - from: electron/registries
     to: registries
 asar: true

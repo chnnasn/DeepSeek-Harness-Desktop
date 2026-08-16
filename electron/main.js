@@ -432,28 +432,6 @@ function startPluginServer() {
         });
         return;
       }
-      if (req.method === 'GET' && pathname === '/appearance-page') {
-        const p = appearanceHtmlPath();
-        if (!fs.existsSync(p)) {
-          res.writeHead(404, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, error: 'appearance.html not found' }));
-          return;
-        }
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(fs.readFileSync(p, 'utf8'));
-        return;
-      }
-      if (req.method === 'GET' && pathname === '/marketplace') {
-        const html = marketplaceHtml();
-        if (html === null) {
-          res.writeHead(404, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, error: 'marketplace.html not found' }));
-          return;
-        }
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(html);
-        return;
-      }
       if (req.method === 'GET' && pathname === '/registries') {
         listRegistries().then(
           (result) => {
@@ -582,33 +560,10 @@ function stopPluginServer() {
   }
 }
 
-// ---- plugin marketplace (embedded tab) -------------------------------------
-// The marketplace UI lives in electron/marketplace.html and is served over the
-// plugin server at /marketplace; the patched plugin-list page embeds it as an
-// iframe tab, so it lives inside the settings page instead of a separate window.
-
-function marketplaceHtmlPath() {
-  return app.isPackaged
-    ? path.join(process.resourcesPath, 'marketplace.html')
-    : path.join(__dirname, 'marketplace.html');
-}
-
-function marketplaceHtml() {
-  const p = marketplaceHtmlPath();
-  if (!fs.existsSync(p)) return null;
-  return fs.readFileSync(p, 'utf8');
-}
-
 // ---- appearance customization ----------------------------------------------
 // User-overridable look: a few CSS color tokens plus an optional background
 // image, persisted under $DSH_HOME/appearance.json and injected into the dsh
 // web surface via insertCSS (dsh themes everything through --dsw-alias-* vars).
-
-function appearanceHtmlPath() {
-  return app.isPackaged
-    ? path.join(process.resourcesPath, 'appearance.html')
-    : path.join(__dirname, 'appearance.html');
-}
 
 function appearanceConfigPath() {
   return path.join(dataDir, 'dsh-home', 'appearance.json');
