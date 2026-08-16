@@ -1,0 +1,13 @@
+{
+  "name": "official",
+  "title": "官方插件库",
+  "description": "DeepSeek Harness Desktop 官方收录的插件。",
+  "plugins": [
+    {
+      "name": "is-number",
+      "title": "is-number（安装链路示例）",
+      "description": "示例条目，用于验证插件安装链路。安装后作为普通依赖加入 profile，不影响 dsh 功能。",
+      "install": "is-number"
+    }
+  ]
+}
