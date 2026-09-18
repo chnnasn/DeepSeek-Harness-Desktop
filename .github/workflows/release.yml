@@ -1,8 +1,6 @@
-name: package-and-release
+name: manual-package-and-release
 
 on:
-  schedule:
-    - cron: '37 3 * * *'
   workflow_dispatch:
     inputs:
       version:
@@ -51,38 +49,27 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          EVENT_NAME: ${{ github.event_name }}
         run: |
           $tag = "v${{ steps.version.outputs.version }}"
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) {
             Write-Output "exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
-            if ($env:EVENT_NAME -eq 'workflow_dispatch') {
-              Write-Output "build=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
-              Write-Host "Release $tag exists; the manual run will rebuild and update it."
-            } else {
-              Write-Output "build=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
-              Write-Host "Release $tag already exists; scheduled run is skipping it."
-            }
+            Write-Host "Release $tag exists; the manual run will rebuild and update it."
           } else {
             Write-Output "exists=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
-            Write-Output "build=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
             Write-Host "Release $tag does not exist; building."
           }
           exit 0
 
       - name: Install build dependencies
-        if: steps.check.outputs.build == 'true'
         run: npm ci
 
       - name: Package (NSIS setup via electron-builder)
-        if: steps.check.outputs.build == 'true'
         shell: pwsh
         run: |
           ./scripts/package.ps1 -Version "${{ steps.version.outputs.version }}"
 
       - name: Create or update GitHub Release
-        if: steps.check.outputs.build == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -95,7 +82,7 @@ jobs:
           $version = "${{ steps.version.outputs.version }}"
           $tag = "v$version"
           $title = "DeepSeek Harness Desktop v$version"
-          $notes = "Automated NSIS installer build of @deepseek-ai/dsh v$version (Electron). Install once, then launch from the Start menu or desktop shortcut. Uninstall via the built-in uninstaller / Control Panel. No Node.js or Microsoft Edge required."
+          $notes = "Manually triggered NSIS installer build of @deepseek-ai/dsh v$version (Electron). Install once, then launch from the Start menu or desktop shortcut. Uninstall via the built-in uninstaller / Control Panel. No Node.js or Microsoft Edge required."
 
           if ("${{ steps.check.outputs.exists }}" -eq 'true') {
             gh release upload $tag $exe.FullName --clobber

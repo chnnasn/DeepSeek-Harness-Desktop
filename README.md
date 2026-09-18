@@ -13,7 +13,7 @@
 - **插件开关**：在插件列表逐个启用/停用插件，重启生效（设置 → 插件 → 插件列表）
 - **外观自定义**：主题色 + 背景图（设置 → 通用 → 外观 → 自定义）
 - **默认全家桶**：预装 `@linxin666/dsh-web-ui-all`（任务看板 / git 图 / 皮肤中心等；桌面宠物已默认移除）
-- **自动更新**：GitHub Actions 每天检查上游新版本并自动发布
+- **手动发布**：仅由维护者手动触发 GitHub Actions 拉取指定版本并打包发布
 
 ## 快速开始
 
@@ -54,7 +54,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1 -Version 0.1.0-rc
 
 ### 升级 dsh 版本（维护者）
 
-CI 每天取 npm 上 `@deepseek-ai/dsh` 的 latest 打包。**补丁与 dsh 版本强耦合**：`scripts\dsh-app-boot.patch.js` 与 `scripts\plugin-inventory-client.patch.js` 是整文件覆盖上游构建产物，`scripts\package.ps1` 里还有 worker 替换与子进程补丁。升级大版本后请核对/重新生成这些补丁；补丁失配不会中断打包（打 `[WARN]`），但会缺失对应功能，发版前检查打包日志。
+需要升级时，由维护者手动选择 `@deepseek-ai/dsh` 版本并打包。**补丁与 dsh 版本强耦合**：`scripts\dsh-app-boot.patch.js` 与 `scripts\plugin-inventory-client.patch.js` 是整文件覆盖上游构建产物，`scripts\package.ps1` 里还有 worker 替换与子进程补丁。升级大版本后请核对/重新生成这些补丁；补丁失配不会中断打包（打 `[WARN]`），但会缺失对应功能，发版前检查打包日志。
 
 ## 插件与外观
 
@@ -64,9 +64,9 @@ CI 每天取 npm 上 `@deepseek-ai/dsh` 的 latest 打包。**补丁与 dsh 版�
 - **默认全家桶**：打包时预装 `@linxin666/dsh-web-ui-all` 并写进 web profile 默认 bundle，新安装即带任务看板 / git 图 / 皮肤中心等（桌面宠物已默认移除，需要可在插件商城按包名 `@linxin666/dsh-pet` 装回）。
 - **外部链接**：界面里点击的任何 http/https 链接都在系统默认浏览器打开，不会在应用内新开窗口。
 
-## 自动发布（GitHub Actions）
+## 手动发布（GitHub Actions）
 
-`.github/workflows/release.yml` 每天定时并支持手动触发：读取 npm 上 `@deepseek-ai/dsh` 的 `latest` 版本（已发布则跳过）→ `npm ci` → `package.ps1` 打包 → `gh release create` 上传 Setup.exe。
+`.github/workflows/release.yml` 仅支持维护者从 Actions 页面手动触发。可输入 `@deepseek-ai/dsh` 版本，留空则在本次手动运行中读取 npm `latest`，然后执行 `npm ci` → `package.ps1` 打包 → 创建或更新 GitHub Release 并上传 Setup.exe。仓库不会再定时检查或自动打包。
 
 发布前请在仓库 `Settings → Actions → General → Workflow permissions` 勾选 **Read and write permissions**。
 
